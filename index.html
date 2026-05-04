@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d3b66">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Elexcom Inspect">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Elexcom Vehicle Daily Inspection</title>
+<!-- jsPDF for offline-capable PDF generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root {
+    --elx-blue: #0d3b66;
+    --elx-blue-dark: #082a4a;
+    --elx-blue-light: #1d5a96;
+    --elx-yellow: #f5b700;
+    --elx-bg: #f4f6f9;
+    --elx-card: #ffffff;
+    --elx-text: #1a1f2c;
+    --elx-muted: #5b6577;
+    --elx-border: #d8dee8;
+    --elx-pass: #1f8a4a;
+    --elx-fail: #c8232a;
+    --elx-na: #8a8f9c;
+    --elx-warn-bg: #fff8e1;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--elx-bg);
+    color: var(--elx-text);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.45;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header.app-header {
+    background: linear-gradient(135deg, var(--elx-blue) 0%, var(--elx-blue-light) 100%);
+    color: #fff;
+    padding: 18px 16px calc(18px + env(safe-area-inset-top)) 16px;
+    padding-top: calc(18px + env(safe-area-inset-top));
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  }
+  .logo-box {
+    width: 52px;
+    height: 52px;
+    background: #fff;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.4);
+  }
+  .logo-box img { width: 100%; height: 100%; object-fit: contain; }
+  .logo-fallback {
+    font-weight: 800;
+    color: var(--elx-blue);
+    font-size: 18px;
+    letter-spacing: 0.5px;
+  }
+  .header-text h1 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+  .header-text p {
+    margin: 2px 0 0 0;
+    font-size: 12px;
+    opacity: 0.85;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 16px 14px 80px 14px;
+  }
+  .card {
+    background: var(--elx-card);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border: 1px solid var(--elx-border);
+  }
+  .card h2 {
+    margin: 0 0 14px 0;
+    font-size: 15px;
+    color: var(--elx-blue);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--elx-blue);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .section-icon {
+    background: var(--elx-blue);
+    color: #fff;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--elx-muted);
+    font-weight: 600;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="date"],
+  input[type="time"],
+  select,
+  textarea {
+    width: 100%;
+    padding: 12px 12px;
+    font-size: 16px;
+    font-family: inherit;
+    border: 1px solid var(--elx-border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--elx-text);
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--elx-blue);
+    box-shadow: 0 0 0 3px rgba(13, 59, 102, 0.15);
+  }
+  textarea { min-height: 90px; resize: vertical; }
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 480px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  .check-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eef0f4;
+  }
+  .check-row:last-child { border-bottom: none; }
+  .check-label {
+    flex: 1;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--elx-text);
+    line-height: 1.3;
+  }
+  .check-options {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .check-options input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .check-options label {
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--elx-border);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    background: #fff;
+    color: var(--elx-muted);
+    min-width: 42px;
+    text-align: center;
+    user-select: none;
+    transition: all 0.15s ease;
+  }
+  .check-options input[type="radio"]:checked + label.opt-pass {
+    background: var(--elx-pass); color: #fff; border-color: var(--elx-pass);
+  }
+  .check-options input[type="radio"]:checked + label.opt-fail {
+    background: var(--elx-fail); color: #fff; border-color: var(--elx-fail);
+  }
+  .check-options input[type="radio"]:checked + label.opt-na {
+    background: var(--elx-na); color: #fff; border-color: var(--elx-na);
+  }
+  .photo-section {
+    margin-top: 8px;
+  }
+  .photo-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #fff;
+    border: 2px dashed var(--elx-blue-light);
+    border-radius: 8px;
+    color: var(--elx-blue);
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+    width: 100%;
+    justify-content: center;
+  }
+  .photo-btn:hover { background: rgba(13,59,102,0.05); }
+  input[type="file"] { display: none; }
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .photo-thumb {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--elx-border);
+  }
+  .photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .photo-thumb .remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(200, 35, 42, 0.9);
+    color: #fff;
+    border: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-weight: 700;
+    cursor: pointer;
+    line-height: 1;
+    font-size: 14px;
+  }
+  .submit-bar {
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(to top, var(--elx-bg) 80%, rgba(244,246,249,0));
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom)) 14px;
+    margin: 0 -14px;
+  }
+  .btn-submit {
+    width: 100%;
+    padding: 16px;
+    background: var(--elx-blue);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(13,59,102,0.25);
+  }
+  .btn-submit:active { background: var(--elx-blue-dark); }
+  .btn-submit:disabled { background: var(--elx-muted); cursor: not-allowed; }
+  .btn-secondary {
+    width: 100%;
+    padding: 12px;
+    background: #fff;
+    color: var(--elx-blue);
+    border: 1px solid var(--elx-blue);
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .summary-banner {
+    background: var(--elx-warn-bg);
+    border-left: 4px solid var(--elx-yellow);
+    padding: 12px 14px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    font-size: 13.5px;
+    display: none;
+  }
+  .summary-banner.show { display: block; }
+  .summary-banner strong { color: var(--elx-fail); }
+  .footer-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--elx-muted);
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+  .install-prompt {
+    background: var(--elx-blue);
+    color: #fff;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13.5px;
+  }
+  .install-prompt.show { display: flex; }
+  .install-prompt button {
+    background: #fff;
+    color: var(--elx-blue);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .install-prompt .dismiss {
+    background: transparent;
+    color: #fff;
+    padding: 6px;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 14px;
+    max-width: 420px;
+    width: 100%;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  }
+  .modal h3 { margin: 0 0 8px; color: var(--elx-blue); }
+  .modal p { color: var(--elx-muted); margin: 0 0 16px; font-size: 14px; }
+  .modal-icon {
+    width: 56px;
+    height: 56px;
+    background: var(--elx-pass);
+    color: #fff;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    margin-bottom: 10px;
+  }
+  .modal-icon.warn { background: var(--elx-fail); }
+  .req::after { content: " *"; color: var(--elx-fail); }
+  .abn-line { font-size: 11px; opacity: 0.75; margin-top: 2px; }
+  .history-link {
+    margin-left: auto;
+    color: #fff;
+    text-decoration: none;
+    font-size: 12px;
+    background: rgba(255,255,255,0.15);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .history-link:active { background: rgba(255,255,255,0.25); }
+  .modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .btn-pdf {
+    width: 100%;
+    padding: 14px;
+    background: var(--elx-yellow);
+    color: var(--elx-blue-dark);
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-pdf:active { background: #e0a700; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="logo-box" id="logoBox">
+    <img src="icons/Elexcom-Logo-Final.png" alt="Elexcom" onerror="this.outerHTML='<span class=&quot;logo-fallback&quot;>EX</span>'">
+  </div>
+  <div class="header-text">
+    <h1>Vehicle Daily Inspection</h1>
+    <p>Elexcom Pty Ltd</p>
+    <p class="abn-line" id="abnLine"></p>
+  </div>
+  <a href="admin.html" class="history-link" title="View inspection history">📊 History</a>
+</header>
+
+<div class="container">
+
+  <div class="install-prompt" id="installPrompt">
+    <span>Install this app to your home screen for quick daily access.</span>
+    <button id="installBtn">Install</button>
+    <button class="dismiss" id="dismissInstall" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <div class="summary-banner" id="summaryBanner"></div>
+
+  <form id="inspectionForm" autocomplete="on" novalidate>
+
+    <!-- DRIVER & VEHICLE -->
+    <div class="card">
+      <h2><span class="section-icon">1</span> Driver &amp; Vehicle</h2>
+      <div class="grid-2">
+        <div class="field">
+          <label class="req" for="driverName">Driver Name</label>
+          <input type="text" id="driverName" name="driverName" required autocomplete="name">
+        </div>
+        <div class="field">
+          <label class="req" for="employeeId">Employee ID</label>
+          <input type="text" id="employeeId" name="employeeId" required autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="req" for="vehicleRego">Vehicle Rego</label>
+          <input type="text" id="vehicleRego" name="vehicleRego" required style="text-transform:uppercase" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="req" for="odometer">Odometer (km)</label>
+          <input type="number" id="odometer" name="odometer" required inputmode="numeric" min="0" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="req" for="depot">Location / Depot</label>
+          <select id="depot" name="depot" required>
+            <option value="">— Select —</option>
+            <option>Head Office</option>
+            <option>Workshop</option>
+            <option>Site - Sydney</option>
+            <option>Site - Melbourne</option>
+            <option>Site - Brisbane</option>
+            <option>Site - Perth</option>
+            <option>On the road</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="depotOther">If Other, specify</label>
+          <input type="text" id="depotOther" name="depotOther" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="req" for="inspDate">Date</label>
+          <input type="date" id="inspDate" name="inspDate" required>
+        </div>
+        <div class="field">
+          <label class="req" for="inspTime">Time</label>
+          <input type="time" id="inspTime" name="inspTime" required>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHECKLIST SECTIONS -->
+    <div class="card">
+      <h2><span class="section-icon">2</span> Exterior &amp; Tyres</h2>
+      <div id="section-exterior"></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="section-icon">3</span> Lights &amp; Visibility</h2>
+      <div id="section-lights"></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="section-icon">4</span> Under Bonnet / Fluids</h2>
+      <div id="section-fluids"></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="section-icon">5</span> Cabin &amp; Controls</h2>
+      <div id="section-cabin"></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="section-icon">6</span> Safety Equipment</h2>
+      <div id="section-safety"></div>
+    </div>
+
+    <!-- DEFECTS / NOTES -->
+    <div class="card">
+      <h2><span class="section-icon">7</span> Defects &amp; Notes</h2>
+      <div class="field">
+        <label for="defects">Describe any defects, faults or concerns</label>
+        <textarea id="defects" name="defects" placeholder="e.g. Right rear tyre showing wear on inside edge, replace before next trip..."></textarea>
+      </div>
+      <div class="field">
+        <label>Photos of defects (optional)</label>
+        <label for="photoInput" class="photo-btn">
+          <span style="font-size:18px">📷</span>
+          <span>Add Photos</span>
+        </label>
+        <input type="file" id="photoInput" accept="image/*" capture="environment" multiple>
+        <div class="photo-grid" id="photoGrid"></div>
+      </div>
+      <div class="field">
+        <label for="vehicleSafe">Is the vehicle safe to operate?</label>
+        <select id="vehicleSafe" name="vehicleSafe" required>
+          <option value="">— Select —</option>
+          <option value="Yes">Yes — vehicle is safe to operate</option>
+          <option value="With Caution">Yes — with caution / minor defect noted</option>
+          <option value="No">No — vehicle removed from service</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- SUBMISSION -->
+    <div class="card">
+      <h2><span class="section-icon">8</span> Submit Inspection</h2>
+      <div class="field">
+        <label class="req" for="recipient">Send report to</label>
+        <select id="recipient" name="recipient" required>
+          <option value="">— Select recipient —</option>
+          <!-- Recipient options populated from CONFIG.recipients -->
+        </select>
+      </div>
+      <div class="field">
+        <label for="extraEmail">Add additional email (optional)</label>
+        <input type="email" id="extraEmail" name="extraEmail" placeholder="e.g. supervisor@elexcom.com.au" autocomplete="email">
+      </div>
+    </div>
+
+    <div class="submit-bar">
+      <button type="submit" class="btn-submit" id="btnSubmit">Submit Inspection</button>
+      <button type="button" class="btn-secondary" id="btnReset">Clear Form</button>
+    </div>
+
+    <p class="footer-note">
+      © Elexcom Pty Ltd · Daily inspections are a workplace safety requirement.<br>
+      All defects must be reported to the supervisor before the vehicle is operated.
+    </p>
+
+  </form>
+</div>
+
+<!-- Submission confirmation modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-icon" id="modalIcon">✓</div>
+    <h3 id="modalTitle">Inspection Ready to Send</h3>
+    <p id="modalText"></p>
+    <div class="modal-actions">
+      <button class="btn-submit" id="modalSendBtn">📧 Send by Email / Share</button>
+      <button class="btn-pdf" id="modalPdfBtn">📄 Save as PDF</button>
+      <button class="btn-secondary" id="modalCloseBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =============================================================
+   ELEXCOM PTY LTD — VEHICLE DAILY INSPECTION
+   Configuration
+   -- Update the values below to suit your business --
+   ============================================================= */
+const CONFIG = {
+  companyName: "Elexcom Pty Ltd",
+  abn: "ABN: 42 613 228 210",
+  // Email recipients employee can choose from at submission
+  recipients: [
+    { label: "David Sharp (Director)", email: "david.sharp@elexcom.com.au" },
+    { label: "Fleet Manager", email: "fleet@elexcom.com.au" },
+    { label: "Workshop / Maintenance", email: "workshop@elexcom.com.au" },
+    { label: "Safety Officer", email: "safety@elexcom.com.au" }
+  ],
+  emailSubjectPrefix: "Vehicle Daily Inspection"
+};
+
+/* =============================================================
+   Australian pre-start vehicle inspection checklist
+   ============================================================= */
+const CHECKLIST = {
+  exterior: [
+    "Tyres - condition, tread depth & inflation (all wheels incl. spare)",
+    "Wheels & wheel nuts secure, no missing studs",
+    "Body / panels - no significant damage affecting safety",
+    "Number plates secure, clean & legible",
+    "Registration current (label or e-rego)",
+    "Mirrors clean, undamaged & properly adjusted",
+    "Windscreen & windows - no cracks, clean, clear view",
+    "Wipers & washers operational, blades in good condition",
+    "Fuel cap secure, no fuel leaks",
+    "Exhaust system secure, no visible leaks or damage"
+  ],
+  lights: [
+    "Headlights - high & low beam",
+    "Tail lights & number plate light",
+    "Brake lights (all)",
+    "Indicators - front & rear, both sides",
+    "Hazard lights",
+    "Reverse lights",
+    "Beacon / work lights (if fitted)"
+  ],
+  fluids: [
+    "Engine oil level",
+    "Coolant level",
+    "Brake fluid level",
+    "Power steering fluid (if applicable)",
+    "Windscreen washer fluid",
+    "Battery secure, terminals clean & no corrosion",
+    "Belts & hoses - no leaks, cracks or damage"
+  ],
+  cabin: [
+    "Seatbelts - all functional & undamaged",
+    "Horn operational",
+    "Dashboard warning lights - none illuminated",
+    "Foot brake - firm pedal",
+    "Park brake - holds vehicle on incline",
+    "Steering - free play within tolerance",
+    "Air conditioning / heater / demister",
+    "Fuel level adequate for the day's work",
+    "Odometer & speedometer working",
+    "Cabin clean, no loose items as projectiles"
+  ],
+  safety: [
+    "First aid kit present & in date",
+    "Fire extinguisher present, charged & in date",
+    "Hi-vis vest / required PPE in cabin",
+    "Spare tyre, jack & wheel brace",
+    "Wheel chocks (if required)",
+    "Hazard triangle / warning device",
+    "Load restraints in good condition (if applicable)",
+    "Trailer connection, lights & brakes (if applicable)"
+  ]
+};
+
+const SECTION_TARGETS = {
+  exterior: "section-exterior",
+  lights: "section-lights",
+  fluids: "section-fluids",
+  cabin: "section-cabin",
+  safety: "section-safety"
+};
+
+/* =============================================================
+   Build the checklist UI
+   ============================================================= */
+function slug(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60);
+}
+
+function buildChecklist() {
+  Object.entries(CHECKLIST).forEach(([sectionKey, items]) => {
+    const target = document.getElementById(SECTION_TARGETS[sectionKey]);
+    if (!target) return;
+    items.forEach((item, idx) => {
+      const id = `chk-${sectionKey}-${idx}`;
+      const row = document.createElement("div");
+      row.className = "check-row";
+      row.innerHTML = `
+        <div class="check-label">${item}</div>
+        <div class="check-options">
+          <input type="radio" name="${id}" id="${id}-pass" value="Pass" required>
+          <label for="${id}-pass" class="opt-pass">Pass</label>
+          <input type="radio" name="${id}" id="${id}-fail" value="Fail">
+          <label for="${id}-fail" class="opt-fail">Fail</label>
+          <input type="radio" name="${id}" id="${id}-na" value="N/A">
+          <label for="${id}-na" class="opt-na">N/A</label>
+        </div>
+      `;
+      target.appendChild(row);
+    });
+  });
+}
+
+/* =============================================================
+   Recipient dropdown
+   ============================================================= */
+function buildRecipients() {
+  const sel = document.getElementById("recipient");
+  CONFIG.recipients.forEach(r => {
+    const opt = document.createElement("option");
+    opt.value = r.email;
+    opt.textContent = `${r.label} — ${r.email}`;
+    sel.appendChild(opt);
+  });
+}
+
+/* =============================================================
+   Photos
+   ============================================================= */
+const photos = []; // { name, dataUrl, blob }
+
+function compressImage(file, maxSize = 1280, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxSize || height > maxSize) {
+        const scale = Math.min(maxSize / width, maxSize / height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => {
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve({ blob, dataUrl });
+      }, "image/jpeg", quality);
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handlePhotoSelect(e) {
+  const files = Array.from(e.target.files || []);
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) continue;
+    try {
+      const { blob, dataUrl } = await compressImage(file);
+      photos.push({
+        name: `photo-${photos.length + 1}.jpg`,
+        dataUrl,
+        blob
+      });
+    } catch (err) {
+      console.error("Photo error:", err);
+    }
+  }
+  renderPhotos();
+  e.target.value = ""; // allow re-select of same file
+}
+
+function renderPhotos() {
+  const grid = document.getElementById("photoGrid");
+  grid.innerHTML = "";
+  photos.forEach((p, idx) => {
+    const div = document.createElement("div");
+    div.className = "photo-thumb";
+    div.innerHTML = `
+      <img src="${p.dataUrl}" alt="Defect photo ${idx + 1}">
+      <button type="button" class="remove" aria-label="Remove" data-idx="${idx}">&times;</button>
+    `;
+    grid.appendChild(div);
+  });
+  grid.querySelectorAll(".remove").forEach(btn => {
+    btn.addEventListener("click", e => {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      photos.splice(idx, 1);
+      renderPhotos();
+    });
+  });
+}
+
+/* =============================================================
+   Compose the report
+   ============================================================= */
+function gatherData() {
+  const f = document.getElementById("inspectionForm");
+  const get = id => (document.getElementById(id) || {}).value || "";
+
+  const data = {
+    driverName: get("driverName"),
+    employeeId: get("employeeId"),
+    vehicleRego: get("vehicleRego").toUpperCase(),
+    odometer: get("odometer"),
+    depot: get("depot") === "Other" ? `Other: ${get("depotOther")}` : get("depot"),
+    inspDate: get("inspDate"),
+    inspTime: get("inspTime"),
+    defects: get("defects"),
+    vehicleSafe: get("vehicleSafe"),
+    recipient: get("recipient"),
+    extraEmail: get("extraEmail"),
+    sections: {}
+  };
+
+  Object.entries(CHECKLIST).forEach(([sectionKey, items]) => {
+    data.sections[sectionKey] = items.map((item, idx) => {
+      const name = `chk-${sectionKey}-${idx}`;
+      const checked = document.querySelector(`input[name="${name}"]:checked`);
+      return { item, status: checked ? checked.value : "—" };
+    });
+  });
+
+  return data;
+}
+
+function countFails(data) {
+  let fails = 0, na = 0, total = 0;
+  Object.values(data.sections).forEach(items => {
+    items.forEach(i => {
+      total++;
+      if (i.status === "Fail") fails++;
+      if (i.status === "N/A") na++;
+    });
+  });
+  return { fails, na, total, passes: total - fails - na };
+}
+
+function buildReportText(data) {
+  const counts = countFails(data);
+  const sectionTitles = {
+    exterior: "EXTERIOR & TYRES",
+    lights: "LIGHTS & VISIBILITY",
+    fluids: "UNDER BONNET / FLUIDS",
+    cabin: "CABIN & CONTROLS",
+    safety: "SAFETY EQUIPMENT"
+  };
+
+  let txt = "";
+  txt += `${CONFIG.companyName.toUpperCase()}\n`;
+  txt += `VEHICLE DAILY INSPECTION REPORT\n`;
+  txt += "=".repeat(46) + "\n\n";
+  txt += `Date / Time:    ${data.inspDate} ${data.inspTime}\n`;
+  txt += `Driver:         ${data.driverName} (ID: ${data.employeeId})\n`;
+  txt += `Vehicle Rego:   ${data.vehicleRego}\n`;
+  txt += `Odometer:       ${data.odometer} km\n`;
+  txt += `Location:       ${data.depot}\n`;
+  txt += `Vehicle Status: ${data.vehicleSafe.toUpperCase()}\n`;
+  txt += "\n";
+  txt += `RESULT:  ${counts.passes} Pass  /  ${counts.fails} FAIL  /  ${counts.na} N/A  (of ${counts.total})\n`;
+  txt += "=".repeat(46) + "\n\n";
+
+  Object.entries(data.sections).forEach(([key, items]) => {
+    txt += `--- ${sectionTitles[key]} ---\n`;
+    items.forEach(i => {
+      const tag = i.status === "Fail" ? "[FAIL]" :
+                  i.status === "Pass" ? "[ OK ]" :
+                  i.status === "N/A"  ? "[ NA ]" : "[ -- ]";
+      txt += `${tag} ${i.item}\n`;
+    });
+    txt += "\n";
+  });
+
+  if (data.defects.trim()) {
+    txt += "--- DEFECTS / NOTES ---\n";
+    txt += data.defects.trim() + "\n\n";
+  }
+
+  if (photos.length) {
+    txt += `[ ${photos.length} photo(s) attached ]\n\n`;
+  }
+
+  txt += "=".repeat(46) + "\n";
+  txt += "Inspection completed and submitted via Elexcom\n";
+  txt += "Vehicle Daily Inspection App.\n";
+  return txt;
+}
+
+/* =============================================================
+   PDF generation (using jsPDF + autoTable)
+   ============================================================= */
+function buildPdf(data) {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    alert("PDF library failed to load. Make sure you're online for the first load, then it'll work offline afterwards.");
+    return null;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 40;
+  let y = margin;
+
+  // Header band
+  doc.setFillColor(13, 59, 102);
+  doc.rect(0, 0, pageW, 70, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  // Try to embed the company logo on the right side of the header
+  try {
+    if (window.__elxLogoDataUrl) {
+      doc.addImage(window.__elxLogoDataUrl, "PNG", pageW - margin - 110, 18, 110, 26);
+    }
+  } catch (e) { /* ignore */ }
+  doc.setFontSize(16);
+  doc.text(CONFIG.companyName.toUpperCase(), margin, 32);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.text("Vehicle Daily Inspection Report", margin, 50);
+  if (CONFIG.abn) {
+    doc.setFontSize(8);
+    doc.text(CONFIG.abn, margin, 63);
+  }
+  y = 90;
+
+  // Driver/vehicle block
+  const counts = countFails(data);
+  doc.setTextColor(20, 20, 20);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+
+  doc.autoTable({
+    startY: y,
+    head: [["Inspection Details", ""]],
+    body: [
+      ["Date / Time", `${data.inspDate} ${data.inspTime}`],
+      ["Driver", `${data.driverName}  (Employee ID: ${data.employeeId})`],
+      ["Vehicle Rego", data.vehicleRego],
+      ["Odometer", `${data.odometer} km`],
+      ["Location / Depot", data.depot],
+      ["Vehicle Status", data.vehicleSafe.toUpperCase()],
+      ["Result", `${counts.passes} Pass / ${counts.fails} FAIL / ${counts.na} N/A   (of ${counts.total})`],
+      ["Sent To", (data.recipient || "") + (data.extraEmail ? `, ${data.extraEmail}` : "")]
+    ],
+    theme: "grid",
+    headStyles: { fillColor: [13, 59, 102], textColor: 255, fontStyle: "bold" },
+    columnStyles: { 0: { cellWidth: 130, fontStyle: "bold" }, 1: { cellWidth: "auto" } },
+    styles: { fontSize: 9, cellPadding: 5 },
+    margin: { left: margin, right: margin }
+  });
+
+  y = doc.lastAutoTable.finalY + 16;
+
+  // Each section as its own table
+  const sectionTitles = {
+    exterior: "Exterior & Tyres",
+    lights: "Lights & Visibility",
+    fluids: "Under Bonnet / Fluids",
+    cabin: "Cabin & Controls",
+    safety: "Safety Equipment"
+  };
+
+  Object.entries(data.sections).forEach(([key, items]) => {
+    const rows = items.map(i => [i.item, i.status || "—"]);
+    doc.autoTable({
+      startY: y,
+      head: [[sectionTitles[key], "Result"]],
+      body: rows,
+      theme: "striped",
+      headStyles: { fillColor: [29, 90, 150], textColor: 255, fontStyle: "bold" },
+      columnStyles: { 0: { cellWidth: pageW - margin*2 - 70 }, 1: { cellWidth: 70, halign: "center", fontStyle: "bold" } },
+      styles: { fontSize: 9, cellPadding: 5 },
+      didParseCell: function (h) {
+        if (h.column.index === 1 && h.section === "body") {
+          if (h.cell.raw === "Pass") { h.cell.styles.textColor = [255, 255, 255]; h.cell.styles.fillColor = [31, 138, 74]; }
+          else if (h.cell.raw === "Fail") { h.cell.styles.textColor = [255, 255, 255]; h.cell.styles.fillColor = [200, 35, 42]; }
+          else if (h.cell.raw === "N/A") { h.cell.styles.textColor = [255, 255, 255]; h.cell.styles.fillColor = [138, 143, 156]; }
+        }
+      },
+      margin: { left: margin, right: margin }
+    });
+    y = doc.lastAutoTable.finalY + 12;
+  });
+
+  // Defects/notes block
+  if (data.defects && data.defects.trim()) {
+    if (y > doc.internal.pageSize.getHeight() - 100) { doc.addPage(); y = margin; }
+    doc.autoTable({
+      startY: y,
+      head: [["Defects / Notes"]],
+      body: [[data.defects.trim()]],
+      theme: "grid",
+      headStyles: { fillColor: [200, 35, 42], textColor: 255, fontStyle: "bold" },
+      styles: { fontSize: 9, cellPadding: 6 },
+      margin: { left: margin, right: margin }
+    });
+    y = doc.lastAutoTable.finalY + 12;
+  }
+
+  // Photos pages
+  if (photos.length) {
+    photos.forEach((p, idx) => {
+      doc.addPage();
+      doc.setFillColor(13, 59, 102);
+      doc.rect(0, 0, pageW, 30, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Defect Photo ${idx + 1} of ${photos.length}`, margin, 20);
+
+      const maxW = pageW - margin * 2;
+      const maxH = doc.internal.pageSize.getHeight() - 80;
+      try {
+        // Get natural dimensions to preserve aspect ratio
+        const tmp = new Image();
+        tmp.src = p.dataUrl;
+        let w = maxW, h = maxH;
+        if (tmp.width && tmp.height) {
+          const ratio = Math.min(maxW / tmp.width, maxH / tmp.height);
+          w = tmp.width * ratio;
+          h = tmp.height * ratio;
+        }
+        doc.addImage(p.dataUrl, "JPEG", margin + (maxW - w)/2, 50, w, h);
+      } catch (e) {
+        console.warn("Could not embed photo:", e);
+        doc.setTextColor(20, 20, 20);
+        doc.text("(Photo could not be embedded)", margin, 60);
+      }
+    });
+  }
+
+  // Footer on every page
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(
+      `${CONFIG.companyName} — Vehicle Daily Inspection — Page ${i} of ${totalPages}`,
+      pageW / 2,
+      doc.internal.pageSize.getHeight() - 18,
+      { align: "center" }
+    );
+  }
+
+  return doc;
+}
+
+function downloadPdf(data) {
+  const doc = buildPdf(data);
+  if (!doc) return null;
+  const filename = `inspection-${data.vehicleRego}-${data.inspDate}.pdf`;
+  doc.save(filename);
+  return doc;
+}
+
+/* =============================================================
+   localStorage history
+   ============================================================= */
+const HISTORY_KEY = "elx-inspection-history-v1";
+const MAX_HISTORY = 200;
+
+function saveToHistory(data) {
+  try {
+    const list = loadHistory();
+    // Strip large image data — keep counts & metadata only
+    const counts = countFails(data);
+    const record = {
+      id: `insp-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+      submittedAt: new Date().toISOString(),
+      driverName: data.driverName,
+      employeeId: data.employeeId,
+      vehicleRego: data.vehicleRego,
+      odometer: data.odometer,
+      depot: data.depot,
+      inspDate: data.inspDate,
+      inspTime: data.inspTime,
+      vehicleSafe: data.vehicleSafe,
+      defects: data.defects,
+      recipient: data.recipient,
+      extraEmail: data.extraEmail,
+      photoCount: photos.length,
+      counts,
+      sections: data.sections
+    };
+    list.unshift(record);
+    if (list.length > MAX_HISTORY) list.length = MAX_HISTORY;
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+    return record;
+  } catch (e) {
+    console.warn("Could not save to history:", e);
+    return null;
+  }
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+/* =============================================================
+   Submit — Web Share API (with files) preferred, mailto fallback
+   ============================================================= */
+async function submitInspection(data) {
+  const subject = `${CONFIG.emailSubjectPrefix} — ${data.vehicleRego} — ${data.inspDate}`;
+  const body = buildReportText(data);
+  const recipients = [data.recipient];
+  if (data.extraEmail && data.extraEmail.trim()) recipients.push(data.extraEmail.trim());
+  const to = recipients.join(",");
+
+  // Try Web Share API with files (mobile-friendly)
+  const shareFiles = photos.map(p => new File([p.blob], p.name, { type: "image/jpeg" }));
+  // Also include a text file of the report for easy attachment
+  const reportFile = new File([body], `inspection-${data.vehicleRego}-${data.inspDate}.txt`, { type: "text/plain" });
+  const allFiles = [reportFile, ...shareFiles];
+
+  if (navigator.canShare && navigator.canShare({ files: allFiles })) {
+    try {
+      await navigator.share({
+        title: subject,
+        text: body,
+        files: allFiles
+      });
+      return { ok: true, method: "share" };
+    } catch (err) {
+      if (err.name === "AbortError") return { ok: false, aborted: true };
+      // Fall through to mailto
+      console.warn("Share failed, falling back to mailto:", err);
+    }
+  }
+
+  // Fallback: mailto: link (note: most clients don't support attachments via mailto)
+  const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+
+  // Also offer photos as downloads since mailto can't attach
+  if (photos.length) {
+    setTimeout(() => {
+      photos.forEach((p, i) => {
+        const a = document.createElement("a");
+        a.href = p.dataUrl;
+        a.download = `defect-${data.vehicleRego}-${data.inspDate}-${i + 1}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+    }, 500);
+  }
+
+  return { ok: true, method: "mailto" };
+}
+
+/* =============================================================
+   Form behaviour
+   ============================================================= */
+function initFormDefaults() {
+  const now = new Date();
+  const dateField = document.getElementById("inspDate");
+  const timeField = document.getElementById("inspTime");
+  if (!dateField.value) {
+    dateField.value = now.toISOString().slice(0, 10);
+  }
+  if (!timeField.value) {
+    timeField.value = now.toTimeString().slice(0, 5);
+  }
+
+  // Hide/show 'Other' depot text
+  const depot = document.getElementById("depot");
+  const depotOther = document.getElementById("depotOther");
+  const updateDepotOther = () => {
+    depotOther.parentElement.style.display = depot.value === "Other" ? "" : "none";
+    depotOther.required = depot.value === "Other";
+  };
+  depot.addEventListener("change", updateDepotOther);
+  updateDepotOther();
+
+  // Set ABN line in header
+  if (CONFIG.abn) {
+    document.getElementById("abnLine").textContent = CONFIG.abn;
+  }
+}
+
+function showSummaryBanner(data) {
+  const counts = countFails(data);
+  const banner = document.getElementById("summaryBanner");
+  if (counts.fails > 0) {
+    banner.innerHTML = `<strong>⚠ ${counts.fails} item(s) failed inspection.</strong> Please describe the defects in section 7 before submitting.`;
+    banner.classList.add("show");
+  } else {
+    banner.classList.remove("show");
+  }
+}
+
+function validateBeforeSubmit() {
+  const form = document.getElementById("inspectionForm");
+
+  // Check required basic fields
+  const requiredIds = ["driverName", "employeeId", "vehicleRego", "odometer", "depot", "inspDate", "inspTime", "vehicleSafe", "recipient"];
+  for (const id of requiredIds) {
+    const el = document.getElementById(id);
+    if (!el.value || !el.value.trim()) {
+      el.focus();
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      alert(`Please complete: ${el.previousElementSibling.textContent.replace(" *", "")}`);
+      return false;
+    }
+  }
+
+  // Check every checklist item has a selection
+  let firstMissing = null;
+  Object.entries(CHECKLIST).forEach(([sectionKey, items]) => {
+    items.forEach((_, idx) => {
+      const name = `chk-${sectionKey}-${idx}`;
+      const checked = document.querySelector(`input[name="${name}"]:checked`);
+      if (!checked && !firstMissing) firstMissing = name;
+    });
+  });
+  if (firstMissing) {
+    const el = document.getElementById(`${firstMissing}-pass`);
+    if (el) {
+      el.closest(".check-row").scrollIntoView({ behavior: "smooth", block: "center" });
+      alert("Please mark every checklist item as Pass, Fail or N/A before submitting.");
+    }
+    return false;
+  }
+
+  return true;
+}
+
+/* =============================================================
+   Modal helpers
+   ============================================================= */
+function showModal({ title, text, isWarn = false }) {
+  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalText").textContent = text;
+  document.getElementById("modalIcon").textContent = isWarn ? "!" : "✓";
+  document.getElementById("modalIcon").className = "modal-icon" + (isWarn ? " warn" : "");
+  document.getElementById("confirmModal").classList.add("show");
+}
+function hideModal() {
+  document.getElementById("confirmModal").classList.remove("show");
+}
+
+/* =============================================================
+   PWA install prompt
+   ============================================================= */
+let deferredPrompt = null;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!localStorage.getItem("elx-install-dismissed")) {
+    document.getElementById("installPrompt").classList.add("show");
+  }
+});
+document.addEventListener("DOMContentLoaded", () => {
+  const installBtn = document.getElementById("installBtn");
+  const dismissBtn = document.getElementById("dismissInstall");
+  if (installBtn) installBtn.addEventListener("click", async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      document.getElementById("installPrompt").classList.remove("show");
+    }
+  });
+  if (dismissBtn) dismissBtn.addEventListener("click", () => {
+    document.getElementById("installPrompt").classList.remove("show");
+    localStorage.setItem("elx-install-dismissed", "1");
+  });
+});
+
+/* =============================================================
+   Service worker registration
+   ============================================================= */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("service-worker.js")
+      .catch(err => console.warn("SW registration failed:", err));
+  });
+}
+
+/* =============================================================
+   Boot
+   ============================================================= */
+// Preload the logo as a data URL so we can embed it in PDFs
+(function preloadLogoForPdf() {
+  fetch("icons/Elexcom-Logo-Final.png")
+    .then(r => r.ok ? r.blob() : null)
+    .then(blob => {
+      if (!blob) return;
+      const reader = new FileReader();
+      reader.onload = () => { window.__elxLogoDataUrl = reader.result; };
+      reader.readAsDataURL(blob);
+    })
+    .catch(() => {});
+})();
+
+document.addEventListener("DOMContentLoaded", () => {
+  buildChecklist();
+  buildRecipients();
+  initFormDefaults();
+
+  // Watch for fail selections to nudge user to fill defects
+  document.addEventListener("change", e => {
+    if (e.target.matches('input[type="radio"][name^="chk-"]')) {
+      showSummaryBanner(gatherData());
+    }
+  });
+
+  document.getElementById("photoInput").addEventListener("change", handlePhotoSelect);
+
+  document.getElementById("btnReset").addEventListener("click", () => {
+    if (confirm("Clear the entire form and start over?")) {
+      document.getElementById("inspectionForm").reset();
+      photos.length = 0;
+      renderPhotos();
+      document.getElementById("summaryBanner").classList.remove("show");
+      initFormDefaults();
+      window.scrollTo(0, 0);
+    }
+  });
+
+  document.getElementById("inspectionForm").addEventListener("submit", e => {
+    e.preventDefault();
+    if (!validateBeforeSubmit()) return;
+    const data = gatherData();
+    const counts = countFails(data);
+    let text = `Ready to send report to ${data.recipient}.`;
+    if (data.extraEmail) text += ` (cc ${data.extraEmail})`;
+    text += ` Result: ${counts.passes} pass, ${counts.fails} fail, ${counts.na} N/A.`;
+    if (counts.fails > 0 && !data.defects.trim()) {
+      text += " Note: items failed but no defect description provided.";
+    }
+    showModal({ title: "Inspection Ready to Send", text, isWarn: counts.fails > 0 });
+
+    const finishUp = (message) => {
+      saveToHistory(data);  // Always persist to local history
+      showModal({ title: "Inspection Submitted", text: message });
+      const sendBtn = document.getElementById("modalSendBtn");
+      const pdfBtn = document.getElementById("modalPdfBtn");
+      sendBtn.textContent = "Done";
+      pdfBtn.style.display = "none";
+      sendBtn.onclick = () => {
+        hideModal();
+        if (confirm("Clear the form for the next inspection?")) {
+          document.getElementById("inspectionForm").reset();
+          photos.length = 0;
+          renderPhotos();
+          document.getElementById("summaryBanner").classList.remove("show");
+          initFormDefaults();
+          window.scrollTo(0, 0);
+        }
+      };
+    };
+
+    document.getElementById("modalSendBtn").onclick = async () => {
+      hideModal();
+      const result = await submitInspection(data);
+      if (result.ok) {
+        fi
